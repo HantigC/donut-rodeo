@@ -215,6 +215,7 @@ class ProjCamera:
             color = color[mask]
 
         depth = np.full(img.shape, np.nan)
+        world_idx = np.full(img.shape, np.nan)
 
         for idx, (x, y) in enumerate(img_coords):
             if not mask[idx]:
@@ -222,12 +223,15 @@ class ProjCamera:
             z = projected_vertices[idx, 2]
             if np.isnan(depth[y, x]) or depth[y, x] > z:
                 depth[y, x] = z
+                world_idx[y, x] = idx
             img[y, x] = color
+
+        depth = np.where(np.isnan(depth), -1, depth)
 
         img = np.flipud(img)
         depth = np.flipud(depth)
-        depth = np.where(np.isnan(depth), -1, depth)
-        return img, depth
+        world_idx = np.flipud(world_idx)
+        return img, depth, world_idx
 
     def render_vertices(self, vertices: np.ndarray) -> np.ndarray:
         projected_vertices = self.project_vertices(vertices)
