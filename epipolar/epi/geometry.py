@@ -76,3 +76,13 @@ def in_bounds(xs: np.ndarray, mins: List[float], maxs: List[float]):
     mask = np.stack([((x >= l) & (x <= g)) for l, g, x in zip(mins, maxs, xs.T)])
     mask = mask.all(axis=0)
     return mask
+
+
+def add_col(array: np.array, x):
+    xs = np.full((array.shape[0], 1), x)
+    return np.r_["1", array, xs]
+
+
+def add_row(array: np.array, x):
+    xs = np.full((1, array.shape[1]), x)
+    return np.r_["0", array, xs]

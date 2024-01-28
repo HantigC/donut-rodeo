@@ -8,7 +8,9 @@ from .geometry import (
     normalize,
     to_homogenous,
     scale_homogenous,
+    from_homogenous,
     in_bounds,
+    add_col,
 )
 import plotly.graph_objects as go
 
@@ -43,6 +45,8 @@ class ProjCamera:
     ) -> None:
         self.position = position
         self.focal_length = focal_length
+        self.f_x = self.focal_length / xpixel_mm
+        self.f_y = self.focal_length / ypixel_mm
         self.width = width
         self.height = height
         self._yaw = yaw
@@ -77,8 +81,20 @@ class ProjCamera:
     @cached_property
     def K(self):
         return np.array(
-            [[self.focal_length, 0, 0, 0], [0, self.focal_length, 0, 0], [0, 0, 1, 0]]
+            [
+                [self.f_x, 0, self.width // 2],
+                [0, self.f_y, self.height // 2],
+                [0, 0, 1],
+            ]
         )
+
+    @cached_property
+    def Kinv(self):
+        return np.linalg.inv(self.K)
+
+    @cached_property
+    def viewinv(self):
+        return np.linalg.inv(self.view)
 
     @cached_property
     def view(self):
@@ -196,7 +212,9 @@ class ProjCamera:
 
     def project_vertices(self, vertices: np.ndarray, scale_z=True) -> np.ndarray:
         view_pts = self.view @ to_homogenous(vertices).T
-        img_proj = self.K @ view_pts
+        K = add_col(self.K, 0)
+        img_proj = K @ view_pts
+
         if scale_z:
             return scale_homogenous(img_proj.T)
         return img_proj.T
@@ -207,8 +225,8 @@ class ProjCamera:
         color: Union[np.ndarray, int, float],
         background_color: float = 0,
     ) -> np.ndarray:
-        projected_vertices = self.project_vertices(vertices, scale_z=False)
-        img_coords = self.render_vertices(vertices).astype(np.int32)
+        img_coords = self.project_vertices(vertices).astype(np.int32)
+        cam_vertices = from_homogenous(self.view @ to_homogenous(vertices.T)).T
         mask = in_bounds(img_coords, [0, 0], (self.width - 1, self.height - 1))
         img = np.ones((self.height, self.width)) * background_color
         if isinstance(color, np.ndarray):
@@ -217,10 +235,10 @@ class ProjCamera:
         depth = np.full(img.shape, np.nan)
         world_idx = np.full(img.shape, np.nan)
 
-        for idx, (x, y) in enumerate(img_coords):
+        for idx, (x, y, _) in enumerate(img_coords):
             if not mask[idx]:
                 continue
-            z = projected_vertices[idx, 2]
+            z = cam_vertices[idx, 2]
             if np.isnan(depth[y, x]) or depth[y, x] > z:
                 depth[y, x] = z
                 world_idx[y, x] = idx
