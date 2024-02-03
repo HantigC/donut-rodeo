@@ -1,4 +1,4 @@
-from typing import ClassVar, Union
+from typing import ClassVar, Union, List, NamedTuple
 from functools import cached_property
 from dataclasses import dataclass, field
 import numpy as np
@@ -8,11 +8,20 @@ from .geometry import (
     normalize,
     to_homogenous,
     scale_homogenous,
+    drop_homogenous,
     from_homogenous,
     in_bounds,
     add_col,
 )
+from .model import Model
 import plotly.graph_objects as go
+
+
+class CoordinateSystem(NamedTuple):
+    center: np.ndarray
+    forward: np.ndarray
+    up: np.ndarray
+    right: np.ndarray
 
 
 @dataclass(init=False)
@@ -251,13 +260,6 @@ class ProjCamera:
         world_idx = np.flipud(world_idx)
         return img, depth, world_idx
 
-    def render_vertices(self, vertices: np.ndarray) -> np.ndarray:
-        projected_vertices = self.project_vertices(vertices)
-        projected_vertices = projected_vertices[..., :-1]
-        pixels = projected_vertices / (self.xpixel_mm, self.ypixel_mm)
-        pixels = pixels + (self.width / 2, self.height / 2)
-        return pixels
-
     def look_at(self, target: np.ndarray) -> None:
         towards = normalize(target - self.position)
         proj_towards = towards.copy()
@@ -268,54 +270,10 @@ class ProjCamera:
         proj_towards = normalize(proj_towards)
         self.yaw = np.degrees(np.arccos(np.dot(proj_towards, [1, 0, 0])))
 
-    def draw(self, fig: go.Figure) -> go.Figure:
-        fig = render_camera(fig, self.position, self.forward, self.right, self.up)
-        return fig
-
-
-def render_camera(fig, position, forward, right, up):
-    fig.add_trace(
-        go.Cone(
-            x=[position[0]],
-            y=[position[1]],
-            z=[position[2]],
-            u=[forward[0]],
-            v=[forward[1]],
-            w=[forward[2]],
-            showscale=False,
-        ),
-    )
-    fig.add_trace(
-        go.Scatter3d(
-            x=[position[0], position[0] + forward[0]],
-            y=[position[1], position[1] + forward[1]],
-            z=[position[2], position[2] + forward[2]],
-            mode="lines",
-            marker=dict(
-                color=f"rgb(255, 0, 0)",
-            ),
-        )
-    )
-    fig.add_trace(
-        go.Scatter3d(
-            x=[position[0], position[0] + right[0]],
-            y=[position[1], position[1] + right[1]],
-            z=[position[2], position[2] + right[2]],
-            mode="lines",
-            marker=dict(
-                color=f"rgb(0, 255, 0)",
-            ),
-        )
-    )
-    fig.add_trace(
-        go.Scatter3d(
-            x=[position[0], position[0] + up[0]],
-            y=[position[1], position[1] + up[1]],
-            z=[position[2], position[2] + up[2]],
-            mode="lines",
-            marker=dict(
-                color=f"rgb(0, 0, 255)",
-            ),
-        )
-    )
-    return fig
+    @cached_property
+    def basis(self):
+        position = drop_homogenous(self.view @ to_homogenous(self.position))
+        forward = drop_homogenous(self.rotation @ to_homogenous(self.forward))
+        right = drop_homogenous(self.rotation @ to_homogenous(self.right))
+        up = drop_homogenous(self.rotation @ to_homogenous(self.up))
+        return CoordinateSystem(position, forward, up, right)

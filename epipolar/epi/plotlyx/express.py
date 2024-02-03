@@ -9,7 +9,3 @@ def scatter_3d(xyz, mode="markers", fig=False, **kwargs):
         return go.Figure(data=[scatter_plot])
 
     return scatter_plot
-
-
-def np_to_plotly(xyz):
-    return dict(x=xyz[0], y=xyz[1], z=xyz[2])
