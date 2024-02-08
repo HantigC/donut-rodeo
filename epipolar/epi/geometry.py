@@ -63,7 +63,7 @@ def from_homogenous(xs: Union[np.ndarray, List]) -> np.ndarray:
         xs = np.array(xs)
     if xs.ndim == 2:
         if xs.shape[1] in (3, 4):
-            return xs[:, :-1] / xs[:, -1]
+            return xs[:, :-1] / xs[:, -1, None]
         elif xs.shape[0] in (3, 4):
             return xs[:-1] / xs[-1]
         else:

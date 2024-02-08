@@ -219,13 +219,18 @@ class ProjCamera:
     def uz(self):
         return self.up[2]
 
-    def project_vertices(self, vertices: np.ndarray, scale_z=True) -> np.ndarray:
+    def project_vertices(
+        self, vertices: np.ndarray, scale_z=True, drop_last=False
+    ) -> np.ndarray:
         view_pts = self.view @ to_homogenous(vertices).T
         K = add_col(self.K, 0)
         img_proj = K @ view_pts
 
         if scale_z:
+            if drop_last:
+                return from_homogenous(img_proj.T)
             return scale_homogenous(img_proj.T)
+        
         return img_proj.T
 
     def render_img(
