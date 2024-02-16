@@ -56,7 +56,8 @@ class CameraCoordinateRenderer:
             models = [models]
         for model in models:
             vertices = geom.drop_homogenous(
-                self.camera.view @ geom.to_homogenous(model.vertices).T
+                self.camera.view @ geom.to_homogenous(model.vertices.T, axis=0),
+                axis=0,
             ).T
             marker_dict = dict(symbol="x", size=1)
             if model.color is not None:

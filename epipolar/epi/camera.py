@@ -222,15 +222,15 @@ class ProjCamera:
     def project_vertices(
         self, vertices: np.ndarray, scale_z=True, drop_last=False
     ) -> np.ndarray:
-        view_pts = self.view @ to_homogenous(vertices).T
+        view_pts = self.view @ to_homogenous(vertices, axis=1).T
         K = add_col(self.K, 0)
         img_proj = K @ view_pts
 
         if scale_z:
             if drop_last:
-                return from_homogenous(img_proj.T)
-            return scale_homogenous(img_proj.T)
-        
+                return from_homogenous(img_proj, axis=0).T
+            return scale_homogenous(img_proj, axis=0).T
+
         return img_proj.T
 
     def render_img(
@@ -240,7 +240,9 @@ class ProjCamera:
         background_color: float = 0,
     ) -> np.ndarray:
         img_coords = self.project_vertices(vertices).astype(np.int32)
-        cam_vertices = from_homogenous(self.view @ to_homogenous(vertices.T)).T
+        cam_vertices = from_homogenous(
+            self.view @ to_homogenous(vertices, axis=1).T, axis=0
+        ).T
         mask = in_bounds(img_coords, [0, 0], (self.width - 1, self.height - 1))
         img = np.ones((self.height, self.width)) * background_color
         if isinstance(color, np.ndarray):
