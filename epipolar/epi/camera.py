@@ -36,8 +36,8 @@ class ProjCamera:
     height: int
     xpixel_mm: float
     ypixel_mm: float
+    forward: np.ndarray 
 
-    forward: np.ndarray = field(init=False)
     right: np.ndarray = field(init=False)
     up: np.ndarray = field(init=False)
 
@@ -49,6 +49,7 @@ class ProjCamera:
         height,
         yaw=0,
         pitch=0,
+        forward: np.ndarray = None,
         xpixel_mm: float = 1,
         ypixel_mm: float = 1,
     ) -> None:
@@ -60,14 +61,37 @@ class ProjCamera:
         self.height = height
         self._yaw = yaw
         self._pitch = pitch
-        self._update_vector(self._yaw, self._pitch)
+        if forward is None:
+            self._update_vector(self._yaw, self._pitch)
+        else:
+            self.forward = forward
+
         self.xpixel_mm = xpixel_mm
         self.ypixel_mm = ypixel_mm
 
-    def _update_vector(self, yaw, pitch):
-        self.forward = vector_from_euler(yaw, pitch)
+    def orthogonalize(self):
         self.right = normalize(np.cross(self.forward, self.UP))
         self.up = normalize(np.cross(self.right, self.forward))
+
+    def _update_vector(self, yaw, pitch):
+        self.forward = vector_from_euler(yaw, pitch)
+
+    @property
+    def gaze(self):
+        return normalize(self.position + self.forward)
+
+    @gaze.setter
+    def gaze(self, target):
+        self.forward = normalize(target - self.position)
+
+    @property
+    def forward(self):
+        return self._forward
+
+    @forward.setter
+    def forward(self, forward):
+        self._forward = forward
+        self.orthogonalize()
 
     @property
     def yaw(self):
@@ -241,10 +265,13 @@ class ProjCamera:
     ) -> np.ndarray:
         img_coords = self.project_vertices(vertices).astype(np.int32)
         cam_vertices = from_homogenous(
-            self.view @ to_homogenous(vertices, axis=1).T, axis=0
+            self.view @ to_homogenous(vertices, axis=1).T,
+            axis=0,
         ).T
+
         mask = in_bounds(img_coords, [0, 0], (self.width - 1, self.height - 1))
-        img = np.ones((self.height, self.width)) * background_color
+        img = np.full((self.height, self.width), background_color)
+
         if isinstance(color, np.ndarray):
             color = color[mask]
 
@@ -254,7 +281,7 @@ class ProjCamera:
         for idx, (x, y, _) in enumerate(img_coords):
             if not mask[idx]:
                 continue
-            z = cam_vertices[idx, 2]
+            z = np.linalg.norm(cam_vertices[idx])
             if np.isnan(depth[y, x]) or depth[y, x] > z:
                 depth[y, x] = z
                 world_idx[y, x] = idx
@@ -268,14 +295,7 @@ class ProjCamera:
         return img, depth, world_idx
 
     def look_at(self, target: np.ndarray) -> None:
-        towards = normalize(target - self.position)
-        proj_towards = towards.copy()
-        proj_towards[self.UP != 1] = 0
-        self.pitch = 90 - np.degrees(np.arccos(np.dot(proj_towards, self.UP)))
-        proj_towards = towards.copy()
-        proj_towards[self.UP == 1] = 0
-        proj_towards = normalize(proj_towards)
-        self.yaw = np.degrees(np.arccos(np.dot(proj_towards, [1, 0, 0])))
+        self.forward = normalize(target - self.position)
 
     @cached_property
     def basis(self):

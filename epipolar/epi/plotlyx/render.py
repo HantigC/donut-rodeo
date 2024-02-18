@@ -79,7 +79,7 @@ class CameraCoordinateRenderer:
                     camera=dict(
                         up=np_to_plotly(self.camera.basis.up),
                         center=np_to_plotly(self.camera.basis.center),
-                        eye=np_to_plotly(self.camera.basis.forward),
+                        eye=np_to_plotly(-self.camera.gaze),
                     )
                 )
             )
