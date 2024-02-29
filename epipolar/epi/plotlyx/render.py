@@ -93,17 +93,17 @@ def render_camera_axes(fig, camera: ProjCamera):
 
 
 def render_axes(fig, position, forward, right, up):
-    fig.add_trace(
-        go.Cone(
-            x=[position[0]],
-            y=[position[1]],
-            z=[position[2]],
-            u=[forward[0]],
-            v=[forward[1]],
-            w=[forward[2]],
-            showscale=False,
-        ),
-    )
+    #fig.add_trace(
+        #go.Cone(
+            #x=[position[0]],
+            #y=[position[1]],
+            #z=[position[2]],
+            #u=[forward[0]],
+            #v=[forward[1]],
+            #w=[forward[2]],
+            #showscale=False,
+        #),
+    #)
     fig.add_trace(
         go.Scatter3d(
             x=[position[0], position[0] + forward[0]],
