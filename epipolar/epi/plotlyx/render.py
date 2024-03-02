@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 import copy
 from dataclasses import dataclass
+import numpy as np
 
 import plotly.graph_objects as go
 from .utils.fig import np_to_plotly
@@ -13,7 +14,7 @@ from . import express as pxx
 @dataclass(init=False)
 class CameraCoordinateRenderer:
     camera: ProjCamera
-    fig: Optional[go.Figure] 
+    fig: Optional[go.Figure]
     show_camera: bool = True
     layout: Dict[str, Any] = None
 
@@ -87,28 +88,126 @@ class CameraCoordinateRenderer:
         return fig
 
 
-def render_camera_axes(fig, camera: ProjCamera):
-    fig = render_axes(fig, camera.position, camera.forward, camera.right, camera.up)
+def to_rect(left_down, right_top):
+    ld_x, ld_y, ld_z = left_down
+    rt_x, rt_y, rt_z = right_top
+    rect_3d = np.array(
+        [
+            left_down,
+            [ld_x, rt_y, ld_z],
+            right_top,
+            [rt_x, ld_y, rt_z],
+        ]
+    )
+    return rect_3d
+
+
+def render_frustrum(fig, position, left_down, right_top, scale=None, rgb=None):
+    if scale is None:
+        scale = 1
+
+    if rgb is None:
+        rgb = "rgb(255, 0, 255)"
+
+    rect = scale * to_rect(left_down, right_top)
+
+    fig.add_traces(
+        [
+            go.Scatter3d(
+                x=[position[0], rect[0, 0]],
+                y=[position[1], rect[0, 1]],
+                z=[position[2], rect[0, 2]],
+                mode="lines",
+                marker=dict(color=rgb),
+            ),
+            go.Scatter3d(
+                x=[position[0], rect[1, 0]],
+                y=[position[1], rect[1, 1]],
+                z=[position[2], rect[1, 2]],
+                mode="lines",
+                marker=dict(color=rgb),
+            ),
+            go.Scatter3d(
+                x=[position[0], rect[2, 0]],
+                y=[position[1], rect[2, 1]],
+                z=[position[2], rect[2, 2]],
+                mode="lines",
+                marker=dict(color=rgb),
+            ),
+            go.Scatter3d(
+                x=[position[0], rect[3, 0]],
+                y=[position[1], rect[3, 1]],
+                z=[position[2], rect[3, 2]],
+                mode="lines",
+                marker=dict(color=rgb),
+            ),
+        ]
+    )
+    rect = np.concatenate(
+        [rect, np.expand_dims(rect[0], axis=0)],
+        axis=0,
+    )
+
+    fig.add_trace(
+        go.Scatter3d(
+            x=rect[:, 0],
+            y=rect[:, 1],
+            z=rect[:, 2],
+            mode="lines",
+            marker=dict(color=rgb),
+        )
+    )
     return fig
 
 
-def render_axes(fig, position, forward, right, up):
-    #fig.add_trace(
-        #go.Cone(
-            #x=[position[0]],
-            #y=[position[1]],
-            #z=[position[2]],
-            #u=[forward[0]],
-            #v=[forward[1]],
-            #w=[forward[2]],
-            #showscale=False,
-        #),
-    #)
+def render_camera_axes(fig, camera: ProjCamera, scale=0.1, rgb=None):
+    if scale is not None:
+        if rgb is None:
+            rgb = "rgb(255, 0, 255)"
+
+        ldtr = (
+            camera.Kinv
+            @ np.array(
+                [
+                    [0, 0, 1],
+                    [camera.width, camera.height, 1],
+                ],
+            ).T
+        )
+        ldtr = ldtr * scale
+
+        left_down, right_top = geom.from_homogenous(
+            camera.viewinv @ geom.to_homogenous(ldtr)
+        ).T
+        render_frustrum(
+            fig,
+            camera.position,
+            left_down,
+            right_top,
+            rgb=rgb,
+        )
+
+    fig = render_axes(
+        fig,
+        camera.position,
+        camera.forward,
+        camera.right,
+        camera.up,
+        scale,
+    )
+
+    return fig
+
+
+def render_axes(fig, position, forward, right, up, scale=None):
+    if scale == None:
+        scale = 1
+
     fig.add_trace(
         go.Scatter3d(
-            x=[position[0], position[0] + forward[0]],
-            y=[position[1], position[1] + forward[1]],
-            z=[position[2], position[2] + forward[2]],
+            x=[position[0], position[0] + scale * forward[0]],
+            y=[position[1], position[1] + scale * forward[1]],
+            z=[position[2], position[2] + scale * forward[2]],
             mode="lines",
             marker=dict(
                 color=f"rgb(255, 0, 0)",
@@ -117,9 +216,9 @@ def render_axes(fig, position, forward, right, up):
     )
     fig.add_trace(
         go.Scatter3d(
-            x=[position[0], position[0] + right[0]],
-            y=[position[1], position[1] + right[1]],
-            z=[position[2], position[2] + right[2]],
+            x=[position[0], position[0] + scale * right[0]],
+            y=[position[1], position[1] + scale * right[1]],
+            z=[position[2], position[2] + scale * right[2]],
             mode="lines",
             marker=dict(
                 color=f"rgb(0, 255, 0)",
@@ -128,9 +227,9 @@ def render_axes(fig, position, forward, right, up):
     )
     fig.add_trace(
         go.Scatter3d(
-            x=[position[0], position[0] + up[0]],
-            y=[position[1], position[1] + up[1]],
-            z=[position[2], position[2] + up[2]],
+            x=[position[0], position[0] + scale * up[0]],
+            y=[position[1], position[1] + scale * up[1]],
+            z=[position[2], position[2] + scale * up[2]],
             mode="lines",
             marker=dict(
                 color=f"rgb(0, 0, 255)",
