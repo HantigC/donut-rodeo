@@ -1,4 +1,4 @@
-from typing import ClassVar, Union, List, NamedTuple
+from typing import ClassVar, Union, NamedTuple
 from functools import cached_property
 from dataclasses import dataclass, field
 import numpy as np
@@ -13,7 +13,6 @@ from .geometry import (
     in_bounds,
     add_col,
 )
-from .model import Model
 import plotly.graph_objects as go
 
 
@@ -29,29 +28,27 @@ class ProjCamera:
     UP: ClassVar[np.ndarray] = np.array([0, 1, 0])
 
     position: np.ndarray
-    yaw: float = 0
-    pitch: float = 0
     focal_length: float
     width: int
     height: int
     xpixel_mm: float
     ypixel_mm: float
-    forward: np.ndarray 
+    forward: np.ndarray
 
     right: np.ndarray = field(init=False)
     up: np.ndarray = field(init=False)
 
     def __init__(
         self,
-        position,
-        focal_length,
-        width,
-        height,
-        yaw=0,
-        pitch=0,
-        forward: np.ndarray = None,
+        position: np.ndarray,
+        forward: np.ndarray,
+        focal_length: float,
+        width: int,
+        height: int,
         xpixel_mm: float = 1,
         ypixel_mm: float = 1,
+        right: np.ndarray = None,
+        up: np.ndarray = None,
     ) -> None:
         self.position = position
         self.focal_length = focal_length
@@ -59,12 +56,14 @@ class ProjCamera:
         self.f_y = self.focal_length / ypixel_mm
         self.width = width
         self.height = height
-        self._yaw = yaw
-        self._pitch = pitch
-        if forward is None:
-            self._update_vector(self._yaw, self._pitch)
-        else:
-            self.forward = forward
+        self.forward = forward
+        if right is None:
+            right = normalize(np.cross(self.forward, self.UP))
+        if up is None:
+            up = normalize(np.cross(right, self.forward))
+
+        self.right = right
+        self.up = up
 
         self.xpixel_mm = xpixel_mm
         self.ypixel_mm = ypixel_mm
@@ -72,9 +71,6 @@ class ProjCamera:
     def orthogonalize(self):
         self.right = normalize(np.cross(self.forward, self.UP))
         self.up = normalize(np.cross(self.right, self.forward))
-
-    def _update_vector(self, yaw, pitch):
-        self.forward = vector_from_euler(yaw, pitch)
 
     @property
     def gaze(self):
@@ -92,24 +88,6 @@ class ProjCamera:
     def forward(self, forward):
         self._forward = forward
         self.orthogonalize()
-
-    @property
-    def yaw(self):
-        return self._yaw
-
-    @yaw.setter
-    def yaw(self, value):
-        self._yaw = value
-        self._update_vector(self._yaw, self._pitch)
-
-    @property
-    def pitch(self):
-        return self._pitch
-
-    @pitch.setter
-    def pitch(self, value):
-        self._pitch = value
-        self._update_vector(self._yaw, self._pitch)
 
     @cached_property
     def K(self):
@@ -304,3 +282,52 @@ class ProjCamera:
         right = drop_homogenous(self.rotation @ to_homogenous(self.right))
         up = drop_homogenous(self.rotation @ to_homogenous(self.up))
         return CoordinateSystem(position, forward, up, right)
+
+    @classmethod
+    def from_euler(
+        cls,
+        yaw: float,
+        pitch: float,
+        position: np.ndarray,
+        focal_length: float,
+        width: int,
+        height: int,
+        xpixel_mm: float,
+        ypixel_mm: float,
+    ) -> "ProjCamera":
+        forward = vector_from_euler(yaw, pitch)
+        return cls(
+            position,
+            forward,
+            focal_length,
+            width,
+            height,
+            xpixel_mm,
+            ypixel_mm,
+        )
+
+    @classmethod
+    def from_gaze(
+        cls,
+        gaze: np.ndarray,
+        position: np.ndarray,
+        focal_length: float,
+        width: int,
+        height: int,
+        xpixel_mm: float,
+        ypixel_mm: float,
+        right: np.ndarray = None,
+        up: np.ndarray = None,
+    ) -> "ProjCamera":
+        forward = normalize(gaze - position)
+        return cls(
+            position,
+            forward,
+            focal_length,
+            width,
+            height,
+            xpixel_mm,
+            ypixel_mm,
+            right=right,
+            up=up,
+        )

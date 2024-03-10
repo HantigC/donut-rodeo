@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import copy
 from dataclasses import dataclass
 import numpy as np
@@ -9,6 +9,7 @@ from ..camera import ProjCamera
 from ..model import Model
 from .. import geometry as geom
 from . import express as pxx
+from .frustrum import render_frustrum, render_wh_frustrum
 
 
 @dataclass(init=False)
@@ -66,13 +67,7 @@ class CameraCoordinateRenderer:
 
             fig.add_trace(pxx.scatter_3d(vertices, marker=marker_dict))
         if self.show_camera:
-            fig = render_axes(
-                fig,
-                self.camera.basis.center,
-                self.camera.basis.forward,
-                self.camera.basis.right,
-                self.camera.basis.up,
-            )
+            fig = render_camera_basis_axes(fig, self.camera)
 
         if use_viewpoint:
             fig.update_layout(
@@ -88,103 +83,24 @@ class CameraCoordinateRenderer:
         return fig
 
 
-def to_rect(left_down, right_top):
-    ld_x, ld_y, ld_z = left_down
-    rt_x, rt_y, rt_z = right_top
-    rect_3d = np.array(
-        [
-            left_down,
-            [ld_x, rt_y, ld_z],
-            right_top,
-            [rt_x, ld_y, rt_z],
-        ]
-    )
-    return rect_3d
-
-
-def render_frustrum(fig, position, left_down, right_top, scale=None, rgb=None):
-    if scale is None:
-        scale = 1
-
-    if rgb is None:
-        rgb = "rgb(255, 0, 255)"
-
-    rect = scale * to_rect(left_down, right_top)
-
-    fig.add_traces(
-        [
-            go.Scatter3d(
-                x=[position[0], rect[0, 0]],
-                y=[position[1], rect[0, 1]],
-                z=[position[2], rect[0, 2]],
-                mode="lines",
-                marker=dict(color=rgb),
-            ),
-            go.Scatter3d(
-                x=[position[0], rect[1, 0]],
-                y=[position[1], rect[1, 1]],
-                z=[position[2], rect[1, 2]],
-                mode="lines",
-                marker=dict(color=rgb),
-            ),
-            go.Scatter3d(
-                x=[position[0], rect[2, 0]],
-                y=[position[1], rect[2, 1]],
-                z=[position[2], rect[2, 2]],
-                mode="lines",
-                marker=dict(color=rgb),
-            ),
-            go.Scatter3d(
-                x=[position[0], rect[3, 0]],
-                y=[position[1], rect[3, 1]],
-                z=[position[2], rect[3, 2]],
-                mode="lines",
-                marker=dict(color=rgb),
-            ),
-        ]
-    )
-    rect = np.concatenate(
-        [rect, np.expand_dims(rect[0], axis=0)],
-        axis=0,
-    )
-
-    fig.add_trace(
-        go.Scatter3d(
-            x=rect[:, 0],
-            y=rect[:, 1],
-            z=rect[:, 2],
-            mode="lines",
-            marker=dict(color=rgb),
-        )
-    )
-    return fig
-
-
-def render_camera_axes(fig, camera: ProjCamera, scale=0.1, rgb=None):
+def render_camera_axes(
+    fig: go.Figure,
+    camera: ProjCamera,
+    scale=0.1,
+    rgb=None,
+) -> go.Figure:
     if scale is not None:
         if rgb is None:
             rgb = "rgb(255, 0, 255)"
 
-        ldtr = (
-            camera.Kinv
-            @ np.array(
-                [
-                    [0, 0, 1],
-                    [camera.width, camera.height, 1],
-                ],
-            ).T
-        )
-        ldtr = ldtr * scale
-
-        left_down, right_top = geom.from_homogenous(
-            camera.viewinv @ geom.to_homogenous(ldtr)
-        ).T
-        render_frustrum(
+        render_wh_frustrum(
             fig,
             camera.position,
-            left_down,
-            right_top,
-            rgb=rgb,
+            (camera.width, camera.height),
+            camera.K,
+            camera.view,
+            scale,
+            rgb,
         )
 
     fig = render_axes(
@@ -193,6 +109,39 @@ def render_camera_axes(fig, camera: ProjCamera, scale=0.1, rgb=None):
         camera.forward,
         camera.right,
         camera.up,
+        scale,
+    )
+
+    return fig
+
+
+def render_camera_basis_axes(
+    fig: go.Figure,
+    camera: ProjCamera,
+    scale=0.1,
+    rgb=None,
+) -> go.Figure:
+
+    if scale is not None:
+        if rgb is None:
+            rgb = "rgb(255, 0, 255)"
+
+        render_wh_frustrum(
+            fig,
+            camera.basis.center,
+            (camera.width, camera.height),
+            camera.K,
+            np.eye(4),
+            scale,
+            rgb,
+        )
+
+    fig = render_axes(
+        fig,
+        camera.basis.center,
+        camera.basis.forward,
+        camera.basis.right,
+        camera.basis.up,
         scale,
     )
 

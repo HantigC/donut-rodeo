@@ -120,3 +120,17 @@ def add_col(array: np.array, x):
 def add_row(array: np.array, x):
     xs = np.full((1, array.shape[1]), x)
     return np.r_["0", array, xs]
+
+
+def to_rect(left_down, right_top):
+    ld_x, ld_y, ld_z = left_down
+    rt_x, rt_y, rt_z = right_top
+    rect_3d = np.array(
+        [
+            left_down,
+            [ld_x, rt_y, ld_z],
+            right_top,
+            [rt_x, ld_y, rt_z],
+        ]
+    )
+    return rect_3d
