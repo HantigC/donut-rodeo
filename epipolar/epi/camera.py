@@ -1,6 +1,8 @@
 from typing import ClassVar, Union, NamedTuple
 from functools import cached_property
 from dataclasses import dataclass, field
+import copy
+
 import numpy as np
 
 from .geometry import (
@@ -282,6 +284,20 @@ class ProjCamera:
         right = drop_homogenous(self.rotation @ to_homogenous(self.right))
         up = drop_homogenous(self.rotation @ to_homogenous(self.up))
         return CoordinateSystem(position, forward, up, right)
+
+    def copy_with_basis(self):
+        camera = ProjCamera(
+            self.basis.center,
+            self.basis.forward,
+            self.focal_length,
+            self.width,
+            self.height,
+            self.xpixel_mm,
+            self.ypixel_mm,
+            self.basis.right,
+            self.basis.up,
+        )
+        return camera
 
     @classmethod
     def from_euler(

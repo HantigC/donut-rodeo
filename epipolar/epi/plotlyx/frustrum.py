@@ -7,8 +7,7 @@ from .. import geometry as geom
 def render_frustrum(
     fig: go.Figure,
     position,
-    left_down,
-    right_top,
+    rect,
     scale=None,
     rgb=None,
 ) -> go.Figure:
@@ -18,7 +17,7 @@ def render_frustrum(
     if rgb is None:
         rgb = "rgb(255, 0, 255)"
 
-    rect = scale * geom.to_rect(left_down, right_top)
+    rect = scale * rect
 
     fig.add_traces(
         [
@@ -80,7 +79,7 @@ def render_image_frustrum(
     rgb=None,
 ) -> go.Figure:
 
-    ldtr = (
+    left_down, right_top = (
         np.linalg.inv(K)
         @ np.array(
             [
@@ -88,16 +87,16 @@ def render_image_frustrum(
                 [right_top[0], right_top[1], 1],
             ],
         ).T
-    )
-    ldtr = ldtr * scale
-    left_down, right_top = geom.from_homogenous(
-        np.linalg.inv(view) @ geom.to_homogenous(ldtr)
+    ).T
+    rect = geom.to_rect(left_down, right_top)
+    rect = rect * scale
+    rect = geom.from_homogenous(
+        np.linalg.inv(view) @ geom.to_homogenous(rect.T)
     ).T
     return render_frustrum(
         fig,
         position,
-        left_down,
-        right_top,
+        rect,
         None,
         rgb,
     )
