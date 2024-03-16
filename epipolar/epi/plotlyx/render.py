@@ -5,6 +5,7 @@ import numpy as np
 
 import plotly.graph_objects as go
 from .utils.fig import np_to_plotly
+from .utils.color import make_random_rgbs
 from ..camera import ProjCamera
 from ..model import Model
 from .. import geometry as geom
@@ -146,6 +147,46 @@ def render_camera_basis_axes(
     )
 
     return fig
+
+
+def render_od_rays(
+    fig: go.Figure,
+    origin: np.ndarray,
+    directions: np.ndarray,
+    scale: float = 1,
+    rgbs: List[str] = None,
+) -> go.Figure:
+    if rgbs is None:
+        rgbs = make_random_rgbs(len(directions))
+
+    for (x, y, z), rgb in zip(directions, rgbs):
+        fig.add_trace(
+            go.Scatter3d(
+                x=[origin[0], origin[0] + scale * x],
+                y=[origin[1], origin[1] + scale * y],
+                z=[origin[2], origin[2] + scale * z],
+                mode="lines",
+                marker=dict(color=rgb),
+            ),
+        )
+    return fig
+
+
+def render_diff_rays(
+    fig: go.Figure,
+    origin: np.ndarray,
+    points: np.ndarray,
+    scale: float = 1,
+    rgbs: List[str] = None,
+) -> go.Figure:
+    directions = geom.normalize(points - origin)
+    return render_od_rays(
+        fig,
+        origin,
+        directions,
+        scale,
+        rgbs,
+    )
 
 
 def render_axes(fig, position, forward, right, up, scale=None):
