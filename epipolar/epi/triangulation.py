@@ -1,3 +1,4 @@
+from typing import List, Union
 import numpy as np
 from epi import geometry as geom
 
@@ -56,11 +57,20 @@ class _Linear:
         cam1: np.ndarray,
         cam2: np.ndarray,
     ) -> np.ndarray:
-        points = np.stack([points1, points2], axis=1)
-        cams = np.stack([cam1, cam2])
+        triangulated_points = _Linear.multi_cameras([points1, points2], [cam1, cam2])
+        return triangulated_points
+
+    @staticmethod
+    def multi_cameras(
+        points: Union[np.ndarray, List[np.ndarray]],
+        cameras: Union[np.ndarray, List[np.ndarray]],
+    ) -> Union[np.ndarray, List[np.ndarray]]:
+
+        points = np.stack(points, axis=1)
+        cams = np.stack(cameras)
 
         sistems = points[..., np.newaxis] * cams[:, 2, np.newaxis] - cams[:, :2]
-        sistems = sistems.reshape(-1, 4, 4)
+        sistems = sistems.reshape(-1, sistems.shape[-2] * sistems.shape[-3], 4)
 
         triangulated_points = np.linalg.svd(sistems)
         triangulated_points = triangulated_points.Vh[:, 3, :]
