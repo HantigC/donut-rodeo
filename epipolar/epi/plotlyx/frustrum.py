@@ -9,6 +9,7 @@ def render_frustrum(
     position,
     rect,
     scale=None,
+    name="Pyramid",
     rgb=None,
 ) -> go.Figure:
     if scale is None:
@@ -26,6 +27,8 @@ def render_frustrum(
                 y=[position[1], rect[0, 1]],
                 z=[position[2], rect[0, 2]],
                 mode="lines",
+                name=name,
+                showlegend=False,
                 marker=dict(color=rgb),
             ),
             go.Scatter3d(
@@ -33,6 +36,8 @@ def render_frustrum(
                 y=[position[1], rect[1, 1]],
                 z=[position[2], rect[1, 2]],
                 mode="lines",
+                name=name,
+                showlegend=False,
                 marker=dict(color=rgb),
             ),
             go.Scatter3d(
@@ -40,6 +45,8 @@ def render_frustrum(
                 y=[position[1], rect[2, 1]],
                 z=[position[2], rect[2, 2]],
                 mode="lines",
+                name=name,
+                showlegend=False,
                 marker=dict(color=rgb),
             ),
             go.Scatter3d(
@@ -47,6 +54,8 @@ def render_frustrum(
                 y=[position[1], rect[3, 1]],
                 z=[position[2], rect[3, 2]],
                 mode="lines",
+                name=name,
+                showlegend=False,
                 marker=dict(color=rgb),
             ),
         ]
@@ -62,6 +71,8 @@ def render_frustrum(
             y=rect[:, 1],
             z=rect[:, 2],
             mode="lines",
+            name=name,
+            showlegend=False,
             marker=dict(color=rgb),
         )
     )
@@ -76,6 +87,7 @@ def render_image_frustrum(
     K: np.ndarray,
     view: np.ndarray,
     scale: float = 0.1,
+    name="Image Pyramid",
     rgb=None,
 ) -> go.Figure:
 
@@ -98,7 +110,8 @@ def render_image_frustrum(
         position,
         rect,
         None,
-        rgb,
+        name=name,
+        rgb=rgb,
     )
 
 
@@ -109,6 +122,7 @@ def render_wh_frustrum(
     K: np.ndarray,
     view: np.ndarray,
     scale: float = 0.1,
+    name="Pyramid",
     rgb=None,
 ) -> go.Figure:
     w, h = wh
@@ -122,5 +136,6 @@ def render_wh_frustrum(
         K,
         view,
         scale,
-        rgb,
+        name=name,
+        rgb=rgb,
     )

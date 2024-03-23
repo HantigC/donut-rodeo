@@ -88,6 +88,7 @@ def render_camera_axes(
     fig: go.Figure,
     camera: ProjCamera,
     scale=0.1,
+    name="Camera",
     rgb=None,
 ) -> go.Figure:
     if scale is not None:
@@ -101,7 +102,8 @@ def render_camera_axes(
             camera.K,
             camera.view,
             scale,
-            rgb,
+            name=name,
+            rgb=rgb,
         )
 
     fig = render_axes(
@@ -111,6 +113,7 @@ def render_camera_axes(
         camera.right,
         camera.up,
         scale,
+        name=name,
     )
 
     return fig
@@ -189,9 +192,25 @@ def render_diff_rays(
     )
 
 
-def render_axes(fig, position, forward, right, up, scale=None):
+def render_axes(
+    fig,
+    position,
+    forward,
+    right,
+    up,
+    scale=None,
+    name=None,
+):
     if scale == None:
         scale = 1
+
+    forward_name = "forward"
+    up_name = "up"
+    right_name = "right"
+    if name is not None:
+        forward_name = " ".join([name, forward_name])
+        right_name = " ".join([name, right_name])
+        up_name = " ".join([name, up_name])
 
     fig.add_trace(
         go.Scatter3d(
@@ -199,6 +218,8 @@ def render_axes(fig, position, forward, right, up, scale=None):
             y=[position[1], position[1] + scale * forward[1]],
             z=[position[2], position[2] + scale * forward[2]],
             mode="lines",
+            name=forward_name,
+            showlegend=False,
             marker=dict(
                 color=f"rgb(255, 0, 0)",
             ),
@@ -210,6 +231,8 @@ def render_axes(fig, position, forward, right, up, scale=None):
             y=[position[1], position[1] + scale * right[1]],
             z=[position[2], position[2] + scale * right[2]],
             mode="lines",
+            name=right_name,
+            showlegend=False,
             marker=dict(
                 color=f"rgb(0, 255, 0)",
             ),
@@ -221,6 +244,8 @@ def render_axes(fig, position, forward, right, up, scale=None):
             y=[position[1], position[1] + scale * up[1]],
             z=[position[2], position[2] + scale * up[2]],
             mode="lines",
+            name=up_name,
+            showlegend=False,
             marker=dict(
                 color=f"rgb(0, 0, 255)",
             ),
