@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional, Callable, Tuple
 import numpy as np
 from epi import geometry as geom
 
@@ -79,3 +79,82 @@ class _Linear:
 
 
 linear = _Linear
+
+
+class _NonLinear:
+
+    def _jr(self,p1, p2, cam1, cam2, p3d):
+        p1_proj = cam1 @ p3d
+        p2_proj = cam2 @ p3d
+        r = np.r_[
+            p1 - geom.from_homogenous(p1_proj), p2 - geom.from_homogenous(p2_proj)
+        ]
+        r11, r12, r13 = cam1[:3, :3]
+        r21, r22, r23 = cam2[:3, :3]
+        J = np.stack(
+            [
+                r11 * p1_proj[2] - r13 * p1_proj[0],
+                r12 * p1_proj[2] - r13 * p1_proj[1],
+                r21 * p2_proj[2] - r23 * p2_proj[0],
+                r22 * p2_proj[2] - r23 * p2_proj[1],
+            ]
+        )
+        return J, r
+
+    def __call__(
+        self,
+        p1: np.ndarray,
+        p2: np.ndarray,
+        cam1: np.ndarray,
+        cam2: np.ndarray,
+        p3d: np.ndarray,
+        threshold: float = 0.001,
+        max_iterations: int = 10,
+        return_error: bool = False,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        error = np.inf
+        idx = 0
+
+        while error > threshold and idx < max_iterations:
+            J, residual_vector = self._jr(p1, p2, cam1, cam2, geom.to_homogenous(p3d))
+            p3d = p3d - np.linalg.inv((J.T @ J)) @ J.T @ residual_vector
+            error = np.sum(residual_vector**2) / 2
+            idx += 1
+
+        if return_error:
+            return p3d, error
+        return p3d
+
+    def multiple_points(
+        self,
+        pts1: np.ndarray,
+        pts2: np.ndarray,
+        cam1: np.ndarray,
+        cam2: np.ndarray,
+        p3ds: np.ndarray,
+        threshold: float = 0.001,
+        max_iterations: int = 10,
+        return_error: bool = False,
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+        results = []
+        for p1, p2, p3d in zip(pts1, pts2, p3ds):
+            result = self(
+                p1,
+                p2,
+                cam1,
+                cam2,
+                p3d,
+                threshold,
+                max_iterations,
+                return_error,
+            )
+            results.append(result)
+
+        if return_error:
+            p3ds, residuals = list(zip(*results))
+            return np.array(p3ds), np.array(residuals)
+
+        return np.array(results)
+
+
+non_linear = _NonLinear()
