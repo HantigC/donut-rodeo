@@ -83,9 +83,9 @@ linear = _Linear
 
 class _NonLinear:
 
-    def _jr(self,p1, p2, cam1, cam2, p3d):
-        p1_proj = cam1 @ p3d
-        p2_proj = cam2 @ p3d
+    def _jr(self, p1, p2, cam1, cam2, p3d):
+        x1, y1, z1 = p1_proj = cam1 @ p3d
+        x2, y2, z2 = p2_proj = cam2 @ p3d
         r = np.r_[
             p1 - geom.from_homogenous(p1_proj), p2 - geom.from_homogenous(p2_proj)
         ]
@@ -93,10 +93,10 @@ class _NonLinear:
         r21, r22, r23 = cam2[:3, :3]
         J = np.stack(
             [
-                r11 * p1_proj[2] - r13 * p1_proj[0],
-                r12 * p1_proj[2] - r13 * p1_proj[1],
-                r21 * p2_proj[2] - r23 * p2_proj[0],
-                r22 * p2_proj[2] - r23 * p2_proj[1],
+                (r11 * z1 - r13 * x1) / (z1**2),
+                (r12 * z1 - r13 * y1) / (z1**2),
+                (r21 * z2 - r23 * x2) / (z2**2),
+                (r22 * z2 - r23 * y2) / (z2**2),
             ]
         )
         return J, r
